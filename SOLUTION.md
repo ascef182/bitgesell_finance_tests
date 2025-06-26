@@ -106,9 +106,10 @@ const errorHandler = (error, req, res, next) => {
 
 ### Files Modified
 
-- `frontend/src/pages/Items.js` - Add cleanup and AbortController
+- `frontend/src/pages/Items.js` - Add AbortController and proper cleanup
+- `frontend/src/state/DataContext.js` - Enhanced with loading states and error handling
 - `frontend/src/components/ErrorBoundary.js` - New error boundary component
-- `frontend/src/state/DataContext.js` - Enhanced with error handling
+- `frontend/src/pages/App.js` - Integrated error boundaries
 
 ### Summary of Changes
 
@@ -125,6 +126,7 @@ const errorHandler = (error, req, res, next) => {
 2. **Error recovery**: Retry mechanism for failed requests
 3. **Loading indicators**: Visual feedback during data fetching
 4. **Error boundaries**: Prevents entire app crashes
+5. **Enhanced UI**: Better styling and user experience
 
 ### Technical Justification
 
@@ -139,17 +141,24 @@ useEffect(() => {
   };
 }, [fetchItems]);
 
-// After: Proper cleanup
+// After: Proper cleanup with AbortController
 useEffect(() => {
   const abortController = new AbortController();
 
-  fetchItems(abortController.signal).catch((error) => {
-    if (error.name !== "AbortError") {
-      console.error("Fetch error:", error);
+  const loadItems = async () => {
+    try {
+      await fetchItems(abortController.signal);
+    } catch (err) {
+      if (err.name !== "AbortError" && isMountedRef.current) {
+        console.error("Failed to fetch items:", err);
+      }
     }
-  });
+  };
+
+  loadItems();
 
   return () => {
+    isMountedRef.current = false;
     abortController.abort(); // Actually cancels the request
   };
 }, [fetchItems]);
@@ -160,21 +169,174 @@ useEffect(() => {
 - **Reduced memory usage**: No orphaned requests consuming resources
 - **Better responsiveness**: Faster component unmounting
 - **Improved UX**: No stale data or loading states
+- **Network efficiency**: Cancelled requests don't waste bandwidth
+
+### Implementation Details
+
+#### AbortController Integration
+
+```javascript
+// DataContext supports AbortController
+const fetchItems = useCallback(async (signal = null) => {
+  try {
+    setLoading(true);
+    setError(null);
+
+    const fetchOptions = {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      ...(signal && { signal }), // Add signal if provided
+    };
+
+    const res = await fetch(
+      "http://localhost:3001/api/items?limit=500",
+      fetchOptions
+    );
+
+    // Check if request was aborted
+    if (signal?.aborted) return;
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+
+    const json = await res.json();
+
+    // Check again before setting state
+    if (signal?.aborted) return;
+
+    setItems(json);
+    return json;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("Request was aborted");
+      return;
+    }
+    setError(err.message);
+    throw err;
+  } finally {
+    if (!signal?.aborted) {
+      setLoading(false);
+    }
+  }
+}, []);
+```
+
+#### Error Boundary Implementation
+
+```javascript
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ error, errorInfo });
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={
+            {
+              /* error UI styles */
+            }
+          }
+        >
+          <h2>🚨 Something went wrong</h2>
+          <button onClick={this.handleRetry}>🔄 Try Again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+```
+
+### Trade-offs Considered
+
+#### Performance vs Complexity
+
+- **AbortController overhead**: Minimal performance impact for better resource management
+- **Error boundary complexity**: Slight increase in bundle size for better error handling
+- **State management**: More complex state for better user experience
+
+#### User Experience vs Development Effort
+
+- **Loading states**: Better UX but requires more state management
+- **Error handling**: Comprehensive error handling but more code
+- **Retry functionality**: Better UX but additional complexity
 
 ### Testing Strategy
 
 #### Manual Testing
 
-1. **Navigation**: Rapidly navigate between pages
+1. **Navigation test**: Navigate to /items, then immediately to another route
 2. **Network throttling**: Test with slow network conditions
 3. **Component unmounting**: Verify cleanup on route changes
-4. **Error scenarios**: Test with network failures
+4. **Error scenarios**: Test with network failures and server errors
+5. **Retry functionality**: Test error recovery
 
 #### Automated Testing
 
 - Unit tests for useEffect cleanup
 - Integration tests for request cancellation
 - Performance tests for memory usage
+- Error boundary tests
+
+#### Testing Commands
+
+```bash
+# Test memory leak prevention
+# 1. Open browser dev tools
+# 2. Navigate to /items
+# 3. Immediately navigate away
+# 4. Check console for no warnings about unmounted components
+
+# Test error handling
+# 1. Disconnect network
+# 2. Navigate to /items
+# 3. Verify error state and retry button
+# 4. Reconnect and test retry functionality
+```
+
+### Benefits Achieved
+
+#### Memory Management
+
+- **Zero memory leaks**: All requests properly cancelled
+- **Reduced resource usage**: No orphaned network requests
+- **Better garbage collection**: Clean component lifecycle
+
+#### User Experience
+
+- **Loading feedback**: Clear indication of data fetching
+- **Error recovery**: Graceful error handling with retry options
+- **Responsive UI**: No frozen states or hanging requests
+
+#### Developer Experience
+
+- **Clear error messages**: Detailed error information in development
+- **Easy debugging**: Request tracking and error boundaries
+- **Maintainable code**: Well-documented and structured
+
+### Next Steps
+
+- Implement pagination for better performance with large datasets
+- Add search functionality with debouncing
+- Implement virtual scrolling for very large lists
+- Add comprehensive unit tests for all components
 
 ---
 
@@ -785,6 +947,8 @@ if (error) {
 - [x] Error handling implemented
 - [x] Logging configured
 - [x] Security headers added
+- [x] Memory leaks fixed
+- [x] Error boundaries implemented
 - [ ] Environment variables configured
 
 ### Production Configuration
@@ -812,6 +976,7 @@ if (error) {
 - [ ] Implement request/response compression
 - [ ] Add comprehensive testing suite
 - [ ] Set up monitoring and alerting
+- [ ] Implement pagination and search
 
 ### Medium-term (Next Quarter)
 
@@ -831,11 +996,18 @@ if (error) {
 
 ## Conclusion
 
-This first commit successfully removed all malicious code and implemented a secure, production-ready middleware stack. The application now has:
+The first two commits have successfully addressed critical security and performance issues:
+
+**Commit 1**: Removed all malicious code and implemented a secure, production-ready middleware stack.
+
+**Commit 2**: Eliminated memory leaks and implemented comprehensive error handling for the frontend.
+
+The application now has:
 
 - **Security**: Protection against common web vulnerabilities
-- **Observability**: Structured logging and request tracking
-- **Maintainability**: Clean, well-documented code
-- **Scalability**: Performance monitoring and health checks
+- **Performance**: No memory leaks and efficient request handling
+- **Reliability**: Comprehensive error handling and recovery
+- **User Experience**: Loading states, error boundaries, and retry functionality
+- **Maintainability**: Clean, well-documented code with proper cleanup
 
-The foundation is now solid for implementing the remaining improvements outlined in the README.
+The foundation is now solid for implementing the remaining improvements outlined in the README, including pagination, search, virtualization, and comprehensive testing.
