@@ -48,30 +48,20 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
               {
                 name: "Electronics",
                 description: "Cutting-edge technology for the modern world",
-                image:
-                  "https://via.placeholder.com/400x300/f8f9fa/6c757d?text=Electronics",
+                image: "/photos/Laptop.jpeg",
                 count: items.filter((item) => item.category === "Electronics")
                   .length,
               },
               {
                 name: "Furniture",
                 description: "Elegant designs for your living space",
-                image:
-                  "https://via.placeholder.com/400x300/f8f9fa/6c757d?text=Furniture",
+                image: "/photos/chair.jpeg",
                 count: items.filter((item) => item.category === "Furniture")
-                  .length,
-              },
-              {
-                name: "Accessories",
-                description: "Essential add-ons for your devices",
-                image:
-                  "https://via.placeholder.com/400x300/f8f9fa/6c757d?text=Accessories",
-                count: items.filter((item) => item.category === "Accessories")
                   .length,
               },
             ].map((category, index) => (

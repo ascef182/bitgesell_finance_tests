@@ -19,12 +19,26 @@ import { ShoppingCart, Heart, Star } from "lucide-react";
  * @param {number} product.reviewCount - Number of reviews
  */
 const ProductCard = ({ product }) => {
+  // Map product names to image files
+  const getProductImage = (productName) => {
+    const imageMap = {
+      "Laptop Pro": "/photos/Laptop.jpeg",
+      "Noise Cancelling Headphones": "/photos/headphones.jpeg",
+      "Ultra‑Wide Monitor": "/photos/monitor.jpeg",
+      "Ergonomic Chair": "/photos/chair.jpeg",
+      "Standing Desk": "/photos/desk.jpeg",
+    };
+
+    return (
+      imageMap[productName] ||
+      `https://via.placeholder.com/400x400/f8f9fa/6c757d?text=${encodeURIComponent(
+        product.name?.charAt(0) || "P"
+      )}`
+    );
+  };
+
   // Handle missing image with placeholder
-  const imageUrl =
-    product.image ||
-    `https://via.placeholder.com/400x400/f8f9fa/6c757d?text=${encodeURIComponent(
-      product.name?.charAt(0) || "P"
-    )}`;
+  const imageUrl = product.image || getProductImage(product.name);
 
   // Calculate discount percentage if original price exists
   const discountPercentage = product.originalPrice
