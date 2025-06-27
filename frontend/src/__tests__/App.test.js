@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import "@testing-library/jest-dom";
 import App from "../pages/App";
 
-// Mock simples do DataContext
+// Simple DataContext mock
 const mockItems = [
   { id: 1, name: "Laptop Pro", category: "Electronics", price: 2499 },
   {
@@ -28,7 +28,7 @@ jest.mock("../state/DataContext", () => ({
   }),
 }));
 
-// Mock dos componentes de página
+// Mock page components
 jest.mock("../pages/Items", () => () => <div>Items Page</div>);
 jest.mock("../pages/ItemDetail", () => () => <div>Item Detail Page</div>);
 jest.mock(
@@ -50,7 +50,7 @@ describe("App Component", () => {
   test("renders main navigation elements", () => {
     renderApp();
 
-    // Verifica se os elementos principais da navegação estão presentes
+    // Check if main navigation elements are present
     expect(screen.getAllByText("Store").length).toBeGreaterThan(0);
     expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getAllByText("Products").length).toBeGreaterThan(0);
@@ -60,7 +60,7 @@ describe("App Component", () => {
   test("renders hero section", () => {
     renderApp();
 
-    // Verifica se a seção hero está presente
+    // Check if hero section is present
     expect(screen.getByText("The future is here.")).toBeInTheDocument();
     expect(screen.getByText("Experience innovation.")).toBeInTheDocument();
     expect(screen.getByText("Shop Now")).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe("App Component", () => {
   test("renders featured products section", () => {
     renderApp();
 
-    // Verifica se a seção de produtos em destaque está presente
+    // Check if featured products section is present
     expect(screen.getByText("Featured Products")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -81,7 +81,7 @@ describe("App Component", () => {
   test("renders all products from data", () => {
     renderApp();
 
-    // Verifica se todos os produtos dos dados reais estão sendo exibidos
+    // Check if all products from real data are being displayed
     expect(screen.getByText("Laptop Pro")).toBeInTheDocument();
     expect(screen.getByText("Noise Cancelling Headphones")).toBeInTheDocument();
     expect(screen.getByText("Ultra‑Wide Monitor")).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("App Component", () => {
   test("renders categories section with real categories", () => {
     renderApp();
 
-    // Verifica se a seção de categorias está presente
+    // Check if categories section is present
     expect(screen.getByText("Shop by Category")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -100,7 +100,7 @@ describe("App Component", () => {
       )
     ).toBeInTheDocument();
 
-    // Verifica se as categorias reais estão presentes (usando getAllByText para elementos duplicados)
+    // Check if real categories are present (using getAllByText for duplicate elements)
     expect(screen.getAllByText("Electronics").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Furniture").length).toBeGreaterThan(0);
   });
@@ -108,7 +108,7 @@ describe("App Component", () => {
   test("renders features section", () => {
     renderApp();
 
-    // Verifica se a seção de recursos está presente
+    // Check if features section is present
     expect(screen.getByText("Why Choose Us")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -123,7 +123,7 @@ describe("App Component", () => {
   test("renders footer", () => {
     renderApp();
 
-    // Verifica se o footer está presente (usando texto parcial)
+    // Check if footer is present (using partial text)
     expect(
       screen.getByText(/©.*Store.*All rights reserved/)
     ).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("App Component", () => {
   test("displays correct product counts", () => {
     renderApp();
 
-    // Verifica se as contagens de produtos estão corretas
+    // Check if product counts are correct
     expect(screen.getByText("3 products")).toBeInTheDocument(); // Electronics
     expect(screen.getByText("2 products")).toBeInTheDocument(); // Furniture
   });
@@ -140,14 +140,14 @@ describe("App Component", () => {
   test("renders formatted prices", () => {
     renderApp();
 
-    // Verifica se os preços estão sendo exibidos (formatação pode variar)
+    // Check if prices are being displayed (formatting may vary)
     const pageText = document.body.textContent || "";
 
-    // Verifica se os valores dos preços estão presentes (formatados ou não)
-    expect(pageText).toMatch(/2,499/); // Formatação USD
+    // Check if price values are present (formatted or not)
+    expect(pageText).toMatch(/2,499/); // USD formatting
     expect(pageText).toMatch(/399/);
     expect(pageText).toMatch(/999/);
     expect(pageText).toMatch(/799/);
-    expect(pageText).toMatch(/1,199/); // Formatação USD
+    expect(pageText).toMatch(/1,199/); // USD formatting
   });
 });

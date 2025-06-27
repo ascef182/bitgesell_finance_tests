@@ -1,16 +1,16 @@
 // backend/src/utils/cache.js
-// Serviço de cache Redis com fallback para memória local
+// Redis cache service with fallback to local memory
 
 const redis = require("redis");
 
-// Cache em memória como fallback
+// In-memory cache as fallback
 const memoryCache = new Map();
-const CACHE_TTL = 60; // Tempo de vida padrão do cache (segundos)
+const CACHE_TTL = 60; // Default cache TTL (seconds)
 
 let client = null;
 let redisAvailable = false;
 
-// Tenta conectar ao Redis
+// Try to connect to Redis
 const initializeRedis = async () => {
   try {
     client = redis.createClient();
@@ -27,11 +27,11 @@ const initializeRedis = async () => {
   }
 };
 
-// Inicializa Redis na importação
+// Initialize Redis on import
 initializeRedis();
 
 /**
- * Obtém valor do cache (Redis ou memória)
+ * Get value from cache (Redis or memory)
  * @param {string} key
  * @returns {Promise<any|null>}
  */
@@ -41,7 +41,7 @@ const getCache = async (key) => {
       const data = await client.get(key);
       return data ? JSON.parse(data) : null;
     } else {
-      // Fallback para memória
+      // Fallback to memory
       const cached = memoryCache.get(key);
       if (cached && Date.now() < cached.expiry) {
         return cached.value;
@@ -56,7 +56,7 @@ const getCache = async (key) => {
 };
 
 /**
- * Define valor no cache (Redis ou memória)
+ * Set value in cache (Redis or memory)
  * @param {string} key
  * @param {any} value
  * @param {number} ttl
@@ -66,7 +66,7 @@ const setCache = async (key, value, ttl = CACHE_TTL) => {
     if (redisAvailable && client) {
       await client.setEx(key, ttl, JSON.stringify(value));
     } else {
-      // Fallback para memória
+      // Fallback to memory
       memoryCache.set(key, {
         value,
         expiry: Date.now() + ttl * 1000,
@@ -78,13 +78,13 @@ const setCache = async (key, value, ttl = CACHE_TTL) => {
 };
 
 /**
- * Invalida/remove chave do cache (Redis ou memória)
+ * Invalidate/remove key from cache (Redis or memory)
  * @param {string} key
  */
 const invalidateCache = async (key) => {
   try {
     if (redisAvailable && client) {
-      // Suporte a wildcard: se key termina com *, deleta todas as chaves que começam igual
+      // Wildcard support: if key ends with *, delete all keys that start the same
       if (key.endsWith("*")) {
         const pattern = key;
         const keys = await client.keys(pattern);
@@ -95,7 +95,7 @@ const invalidateCache = async (key) => {
         await client.del(key);
       }
     } else {
-      // Fallback para memória
+      // Fallback to memory
       if (key.endsWith("*")) {
         const prefix = key.slice(0, -1);
         for (const [k] of memoryCache) {
@@ -113,7 +113,7 @@ const invalidateCache = async (key) => {
 };
 
 /**
- * Limpa todo o cache (útil para testes)
+ * Clear all cache (useful for tests)
  */
 const clearCache = async () => {
   try {

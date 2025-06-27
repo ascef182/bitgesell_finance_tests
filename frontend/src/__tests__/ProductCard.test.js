@@ -24,7 +24,7 @@ describe("ProductCard Component", () => {
   test("renders basic product information", () => {
     renderProductCard(mockProduct);
 
-    // Verifica se as informações básicas do produto estão presentes
+    // Check if basic product information is present
     expect(screen.getByText("Laptop Pro")).toBeInTheDocument();
     expect(screen.getByText("Electronics")).toBeInTheDocument();
     expect(
@@ -35,7 +35,7 @@ describe("ProductCard Component", () => {
   test("renders product image", () => {
     renderProductCard(mockProduct);
 
-    // Verifica se a imagem do produto está presente
+    // Check if product image is present
     const image = screen.getByAltText("Laptop Pro");
     expect(image).toBeInTheDocument();
     expect(image.src).toContain("/photos/Laptop.jpeg");
@@ -44,7 +44,7 @@ describe("ProductCard Component", () => {
   test("renders add to cart button", () => {
     renderProductCard(mockProduct);
 
-    // Verifica se o botão de adicionar ao carrinho está presente
+    // Check if add to cart button is present
     expect(screen.getByText("Add to Cart")).toBeInTheDocument();
   });
 
@@ -59,14 +59,14 @@ describe("ProductCard Component", () => {
 
     renderProductCard(furnitureProduct);
 
-    // Verifica se o produto de mobiliário é renderizado corretamente
+    // Check if furniture product is rendered correctly
     expect(screen.getByText("Ergonomic Chair")).toBeInTheDocument();
     expect(screen.getByText("Furniture")).toBeInTheDocument();
     expect(
       screen.getByText("Comfortable chair for long work sessions")
     ).toBeInTheDocument();
 
-    // Verifica se a imagem correta é usada
+    // Check if correct image is used
     const image = screen.getByAltText("Ergonomic Chair");
     expect(image.src).toContain("/photos/chair.jpeg");
   });
@@ -82,12 +82,12 @@ describe("ProductCard Component", () => {
 
     renderProductCard(electronicsProduct);
 
-    // Verifica se o produto eletrônico é renderizado corretamente
+    // Check if electronics product is rendered correctly
     expect(screen.getByText("Noise Cancelling Headphones")).toBeInTheDocument();
     expect(screen.getByText("Electronics")).toBeInTheDocument();
     expect(screen.getByText("Premium audio experience")).toBeInTheDocument();
 
-    // Verifica se a imagem correta é usada
+    // Check if correct image is used
     const image = screen.getByAltText("Noise Cancelling Headphones");
     expect(image.src).toContain("/photos/headphones.jpeg");
   });
@@ -100,7 +100,7 @@ describe("ProductCard Component", () => {
 
     renderProductCard(productWithBadge);
 
-    // Verifica se o badge está presente
+    // Check if badge is present
     expect(screen.getByText("New")).toBeInTheDocument();
   });
 
@@ -112,7 +112,7 @@ describe("ProductCard Component", () => {
 
     renderProductCard(productWithDiscount);
 
-    // Verifica se o preço original riscado está presente
+    // Check if original crossed price is present
     expect(screen.getByText("$2,999")).toBeInTheDocument();
     expect(screen.getByText("-17%")).toBeInTheDocument();
   });
@@ -126,7 +126,7 @@ describe("ProductCard Component", () => {
 
     renderProductCard(productWithRating);
 
-    // Verifica se a avaliação está presente
+    // Check if rating is present
     expect(screen.getByText("(128)")).toBeInTheDocument();
   });
 
@@ -140,7 +140,7 @@ describe("ProductCard Component", () => {
 
     renderProductCard(minimalProduct);
 
-    // Verifica se o produto básico renderiza sem erros
+    // Check if basic product renders without errors
     expect(screen.getByText("Basic Product")).toBeInTheDocument();
     expect(screen.getByText("Electronics")).toBeInTheDocument();
     expect(screen.getByText("$100")).toBeInTheDocument();
@@ -165,14 +165,14 @@ describe("ProductCard Component", () => {
       { id: 5, name: "Standing Desk", category: "Furniture", price: 1199 },
     ];
 
-    // Testa cada produto individualmente
+    // Test each product individually
     allProducts.forEach((product) => {
       const { unmount } = renderProductCard(product);
 
       const image = screen.getByAltText(product.name);
       expect(image).toBeInTheDocument();
 
-      // Verifica se a categoria está presente
+      // Check if category is present
       expect(screen.getByText(product.category)).toBeInTheDocument();
 
       unmount();
