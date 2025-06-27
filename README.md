@@ -1,58 +1,103 @@
-# Take‑Home Assessment
+# 💻 Take‑Home Assessment – Complete Solution
 
-Welcome, candidate! This project contains **intentional issues** that mimic real‑world scenarios.
-Your task is to refactor, optimize, and fix these problems.
+This repository contains the complete solution for the **Take‑Home Assessment**. The application has been evolved from a starter base into a **scalable, production-ready solution**, focusing on **performance**, **maintainability**, and **great user experience**.
 
-## Objectives
-
-### 🔧 Backend (Node.js)
-
-1. **Refactor blocking I/O**  
-   - `src/routes/items.js` uses `fs.readFileSync`. Replace with non‑blocking async operations.
-
-2. **Performance**  
-   - `GET /api/stats` recalculates stats on every request. Cache results, watch file changes, or introduce a smarter strategy.
-
-3. **Testing**  
-   - Add **unit tests** (Jest) for items routes (happy path + error cases).
-
-### 💻 Frontend (React)
-
-1. **Memory Leak**  
-   - `Items.js` leaks memory if the component unmounts before fetch completes. Fix it.
-
-2. **Pagination & Search**  
-   - Implement paginated list with server‑side search (`q` param). Contribute to both client and server.
-
-3. **Performance**  
-   - The list can grow large. Integrate **virtualization** (e.g., `react-window`) to keep UI smooth.
-
-4. **UI/UX Polish**  
-   - Feel free to enhance styling, accessibility, and add loading/skeleton states.
-
-### 📦 What We Expect
-
-- Idiomatic, clean code with comments where necessary.
-- Solid error handling and edge‑case consideration.
-- Tests that pass via `npm test` in both frontend and backend.
-- A brief `SOLUTION.md` describing **your approach and trade‑offs**.
-
-## Quick Start
-
-node version: 18.XX
+---
 ```bash
-nvm install 18
-nvm use 18
 
-# Terminal 1
+branch-> main
+```
+## 🧠 Technical Highlights
+
+- **Backend**
+  - Full refactoring of the original codebase
+  - Swagger/OpenAPI documentation ([localhost:3001/api-docs](http://localhost:3001/api-docs))
+  - Efficient pagination and filtering
+  - Redis caching
+  - Structured logging
+  - Security middleware: CORS, rate limiting, payload validation
+  - Test coverage using `jest` and `supertest`
+
+- **Frontend**
+  - Modern interface inspired by the Apple Store
+  - Responsive search with debounce
+  - Optimized pagination
+  - List virtualization for high performance
+  - Memory leak detection and fixes
+  - Tests with `vitest` and `react-testing-library`
+  - Fully responsive and accessible
+
+---
+
+## ▶️ How to Run
+
+### Prerequisites
+
+- Node.js (>=18)
+- Redis (running locally or in a container)
+- NPM or Yarn
+
+### Backend
+
+```bash
 cd backend
 npm install
 npm start
+```
 
-# Terminal 2
+
+Frontend
+
+```bash
 cd frontend
 npm install
 npm start
 ```
 
-> The frontend proxies `/api` requests to `http://localhost:3001`.
+✅ Automated Tests
+Backend
+
+```bash
+cd backend
+npm test
+```
+Frontend
+```
+
+cd frontend
+npm test
+Total: 54 passing tests (24 backend + 30 frontend)
+```
+
+📁 Structure
+
+project-root/
+├── backend/
+│   ├── src/
+│   ├── tests/
+│   └── ...
+├── frontend/
+│   ├── src/
+│   ├── components/
+│   ├── pages/
+│   └── ...
+└── SOLUTION.md  ← Technical reasoning and decisions
+
+📌 Final Notes
+This application was built with a strong focus on:
+
+🔐 Security
+
+⚙️ Performance
+
+🧩 Modular architecture
+
+🧪 Testability
+
+👨‍💻 Developer experience
+
+📈 Production readiness
+
+All technical reasoning is documented in SOLUTION.md, including architectural decisions, improvements, and suggestions for future enhancements.
+
+Thank you for the opportunity!
