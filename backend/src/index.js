@@ -9,10 +9,11 @@ const cors = require("cors");
 const {
   notFound,
   errorHandler,
+  jsonErrorHandler,
   validateRequest,
   securityHeaders,
 } = require("./middleware/errorHandler");
-const { requestLogger, errorLogger } = require("./middleware/logger");
+const { requestLogger } = require("./middleware/logger");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -36,6 +37,9 @@ app.use(
 // Request parsing middleware
 app.use(express.json({ limit: "10mb" })); // Limit payload size
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// JSON error handler (must come after express.json())
+app.use(jsonErrorHandler);
 
 // Logging middleware
 app.use(requestLogger);
@@ -61,15 +65,17 @@ app.get("/health", (req, res) => {
 // 404 handler
 app.use("*", notFound);
 
-// Error logging middleware
-app.use(errorLogger);
-
 // Global error handler (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(port, () => {
-  console.log(`🚀 Backend server running on http://localhost:${port}`);
-  console.log(`📊 Health check available at http://localhost:${port}/health`);
-  console.log(`🔒 Security headers and validation enabled`);
-});
+// Export app for testing
+module.exports = app;
+
+// Start server only if this file is run directly
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`🚀 Backend server running on http://localhost:${port}`);
+    console.log(`📊 Health check available at http://localhost:${port}/health`);
+    console.log(`🔒 Security headers and validation enabled`);
+  });
+}

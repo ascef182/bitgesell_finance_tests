@@ -8,7 +8,7 @@
  * - Request tracking for audit purposes
  */
 
-const logger = require("./logger");
+const { logger } = require("./logger");
 
 /**
  * 404 Not Found middleware
@@ -16,7 +16,7 @@ const logger = require("./logger");
  */
 const notFound = (req, res, next) => {
   const error = new Error(`Route Not Found: ${req.method} ${req.originalUrl}`);
-  error.status = 404;
+  error.statusCode = 404;
   error.code = "ROUTE_NOT_FOUND";
 
   // Log the 404 request for monitoring
@@ -34,18 +34,18 @@ const notFound = (req, res, next) => {
  * Global error handler middleware
  * Processes all errors thrown in the application
  */
-const errorHandler = (error, req, res, next) => {
-  // Default error values
-  const status = error.status || 500;
-  const message = error.message || "Internal Server Error";
-  const code = error.code || "INTERNAL_ERROR";
+const errorHandler = (err, req, res, next) => {
+  // Standardize error properties
+  const statusCode = err.statusCode || err.status || 500;
+  const code = err.code || "INTERNAL_SERVER_ERROR";
+  const message = err.message || "Something went wrong";
 
   // Log error with structured data
   logger.error("Application error", {
-    status,
+    statusCode,
     code,
-    message: error.message,
-    stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    message: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
     method: req.method,
     url: req.originalUrl,
     ip: req.ip,
@@ -55,20 +55,40 @@ const errorHandler = (error, req, res, next) => {
 
   // Security: Don't expose internal errors in production
   const responseMessage =
-    status === 500 && process.env.NODE_ENV === "production"
+    statusCode === 500 && process.env.NODE_ENV === "production"
       ? "Internal Server Error"
       : message;
 
-  // Send error response
-  res.status(status).json({
-    error: {
-      code,
-      message: responseMessage,
-      ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
-    },
-    timestamp: new Date().toISOString(),
-    path: req.originalUrl,
-  });
+  // Always send consistent error format
+  if (!res.headersSent) {
+    res.status(statusCode).json({
+      error: {
+        code,
+        message: responseMessage,
+        ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      },
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+    });
+  } else {
+    // If headers already sent, delegate to default Express handler
+    next(err);
+  }
+};
+
+/**
+ * JSON parsing error handler
+ * Catches JSON parsing errors and formats them consistently
+ */
+const jsonErrorHandler = (error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+    // JSON parsing error
+    const enhancedError = new Error("Invalid JSON in request body");
+    enhancedError.statusCode = 400;
+    enhancedError.code = "INVALID_JSON";
+    return next(enhancedError);
+  }
+  next(error);
 };
 
 /**
@@ -100,12 +120,10 @@ const validateRequest = (req, res, next) => {
         url: req.originalUrl,
       });
 
-      return res.status(400).json({
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Request contains invalid content",
-        },
-      });
+      const error = new Error("Request contains invalid content");
+      error.statusCode = 400;
+      error.code = "INVALID_REQUEST";
+      return next(error);
     }
   }
 
@@ -134,6 +152,7 @@ const securityHeaders = (req, res, next) => {
 module.exports = {
   notFound,
   errorHandler,
+  jsonErrorHandler,
   validateRequest,
   securityHeaders,
 };
