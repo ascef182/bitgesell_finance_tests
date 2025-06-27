@@ -1,60 +1,58 @@
 const express = require("express");
-const path = require("path");
-const morgan = require("morgan");
+const cors = require("cors");
+const helmet = require("helmet");
+const responseTime = require("response-time");
+
+// Import middlewares
+const correlationIdMiddleware = require("./middleware/correlationId");
+const requestLogger = require("./middleware/logger");
+const {
+  errorHandler,
+  validateRequest,
+  notFound,
+} = require("./middleware/errorHandler");
+const rateLimiter = require("./middleware/rateLimit");
+const { metricsMiddleware, getMetrics } = require("./utils/metrics");
+
+// Import routes
 const itemsRouter = require("./routes/items");
 const statsRouter = require("./routes/stats");
-const cors = require("cors");
-const responseTime = require("response-time");
-const rateLimiter = require("./middleware/rateLimit");
-
-// Import secure middleware
-const {
-  notFound,
-  errorHandler,
-  jsonErrorHandler,
-  validateRequest,
-  securityHeaders,
-} = require("./middleware/errorHandler");
-const { requestLogger } = require("./middleware/logger");
 
 const app = express();
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001;
 
-// Security middleware (apply first)
-app.use(securityHeaders);
+// Security middleware
+app.use(helmet());
 
-// CORS configuration with security restrictions
+// CORS configuration
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://yourdomain.com"] // Replace with actual domain
-        : ["http://localhost:3000"],
-    credentials: false, // Disable credentials for security
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    optionsSuccessStatus: 200,
   })
 );
 
-// Request parsing middleware
-app.use(express.json({ limit: "10mb" })); // Limit payload size
+// Request parsing
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// JSON error handler (must come after express.json())
-app.use(jsonErrorHandler);
+// Correlation ID middleware (must be first)
+app.use(correlationIdMiddleware);
 
-// Logging middleware
-app.use(requestLogger);
-app.use(morgan("combined")); // Use combined format for better security
-
-// Request validation middleware
-app.use(validateRequest);
-
-// Performance monitoring (X-Response-Time header)
+// Performance monitoring
 app.use(responseTime());
+app.use(metricsMiddleware);
+
+// Request logging
+app.use(requestLogger);
 
 // Rate limiting global
 app.use(rateLimiter);
+
+// Request validation
+app.use(validateRequest);
 
 // API Routes
 app.use("/api/items", itemsRouter);
@@ -72,23 +70,26 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || "development",
+    correlationId: req.correlationId,
   });
 });
 
+// Metrics endpoint for Prometheus
+app.get("/metrics", getMetrics);
+
 // 404 handler
-app.use("*", notFound);
+app.use(notFound);
 
 // Global error handler (must be last)
 app.use(errorHandler);
 
-// Export app for testing
-module.exports = app;
-
 // Start server only if this file is run directly
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`🚀 Backend server running on http://localhost:${port}`);
-    console.log(`📊 Health check available at http://localhost:${port}/health`);
-    console.log(`🔒 Security headers and validation enabled`);
+  app.listen(PORT, () => {
+    console.log(` Server running on port ${PORT}`);
+    console.log(` Metrics available at http://localhost:${PORT}/metrics`);
+    console.log(` Health check at http://localhost:${PORT}/health`);
   });
 }
+
+module.exports = app;

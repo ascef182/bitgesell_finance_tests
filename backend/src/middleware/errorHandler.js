@@ -8,7 +8,7 @@
  * - Request tracking for audit purposes
  */
 
-const { logger } = require("./logger");
+const logger = require("../utils/logger");
 
 /**
  * 404 Not Found middleware
@@ -40,8 +40,9 @@ const errorHandler = (err, req, res, next) => {
   const code = err.code || "INTERNAL_SERVER_ERROR";
   const message = err.message || "Something went wrong";
 
-  // Log error with structured data
+  // Log error with structured data and correlation ID
   logger.error("Application error", {
+    correlationId: req.correlationId,
     statusCode,
     code,
     message: err.message,
@@ -59,21 +60,16 @@ const errorHandler = (err, req, res, next) => {
       ? "Internal Server Error"
       : message;
 
-  // Always send consistent error format
-  if (!res.headersSent) {
-    res.status(statusCode).json({
-      error: {
-        code,
-        message: responseMessage,
-        ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-      },
-      timestamp: new Date().toISOString(),
-      path: req.originalUrl,
-    });
-  } else {
-    // If headers already sent, delegate to default Express handler
-    next(err);
-  }
+  // Send standardized error response
+  res.status(statusCode).json({
+    error: {
+      code,
+      message: responseMessage,
+    },
+    timestamp: new Date().toISOString(),
+    path: req.originalUrl,
+    correlationId: req.correlationId,
+  });
 };
 
 /**
@@ -114,15 +110,16 @@ const validateRequest = (req, res, next) => {
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(allData)) {
       logger.warn("Suspicious request detected", {
+        correlationId: req.correlationId,
         pattern: pattern.source,
         ip: req.ip,
         userAgent: req.get("User-Agent"),
         url: req.originalUrl,
       });
 
-      const error = new Error("Request contains invalid content");
+      const error = new Error("Suspicious request detected");
       error.statusCode = 400;
-      error.code = "INVALID_REQUEST";
+      error.code = "SUSPICIOUS_REQUEST";
       return next(error);
     }
   }

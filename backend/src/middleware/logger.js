@@ -9,6 +9,8 @@
  * - Performance metrics
  */
 
+const logger = require("../utils/logger");
+
 /**
  * Generate a unique request ID for tracking
  */
@@ -68,7 +70,7 @@ const formatLog = (level, message, data = {}) => {
 /**
  * Logger object with different log levels
  */
-const logger = {
+const loggerObject = {
   info: (message, data) => formatLog("info", message, data),
   warn: (message, data) => formatLog("warn", message, data),
   error: (message, data) => formatLog("error", message, data),
@@ -81,42 +83,36 @@ const logger = {
 
 /**
  * Request logging middleware
- * Logs all incoming requests with performance metrics
+ * Logs incoming requests with correlation ID and structured data
  */
 const requestLogger = (req, res, next) => {
-  // Generate unique request ID
-  req.requestId = generateRequestId();
-
-  // Add request ID to response headers
-  res.setHeader("X-Request-ID", req.requestId);
-
-  // Capture start time for performance measurement
   const startTime = Date.now();
 
-  // Log incoming request
+  // Log request start
   logger.info("Incoming request", {
-    requestId: req.requestId,
+    correlationId: req.correlationId,
     method: req.method,
     url: req.originalUrl,
     ip: req.ip,
     userAgent: req.get("User-Agent"),
     query: req.query,
-    body: req.body,
+    body: req.method !== "GET" ? req.body : {},
   });
 
   // Override res.end to log response
   const originalEnd = res.end;
   res.end = function (chunk, encoding) {
     const duration = Date.now() - startTime;
+    const contentLength = res.get("Content-Length") || 0;
 
-    // Log response
+    // Log request completion
     logger.info("Request completed", {
-      requestId: req.requestId,
+      correlationId: req.correlationId,
       method: req.method,
       url: req.originalUrl,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      contentLength: res.get("Content-Length") || 0,
+      contentLength,
     });
 
     // Call original end method
@@ -146,8 +142,4 @@ const errorLogger = (error, req, res, next) => {
   next(error);
 };
 
-module.exports = {
-  logger,
-  requestLogger,
-  errorLogger,
-};
+module.exports = requestLogger;

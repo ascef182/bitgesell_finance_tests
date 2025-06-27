@@ -12,6 +12,9 @@ const {
 // Import cache utilities
 const { getCache, setCache, invalidateCache } = require("../utils/cache");
 
+// Import logger
+const logger = require("../utils/logger");
+
 // Data file path
 const DATA_PATH = path.join(__dirname, "../../../data/items.json");
 
@@ -38,7 +41,10 @@ async function readItemsData() {
     return data;
   } catch (error) {
     // Log error for debugging
-    console.error("Error reading items data:", error.message);
+    logger.error("Error reading items data", {
+      error: error.message,
+      filePath: DATA_PATH,
+    });
 
     // Re-throw with appropriate status code
     const enhancedError = new Error(
@@ -64,7 +70,11 @@ async function writeItemsData(data) {
       maxRetries: 2,
     });
   } catch (error) {
-    console.error("Error writing items data:", error.message);
+    // Log error for debugging
+    logger.error("Error writing items data", {
+      error: error.message,
+      filePath: DATA_PATH,
+    });
 
     const enhancedError = new Error(
       `Failed to write items data: ${error.message}`
@@ -86,6 +96,10 @@ router.get("/", async (req, res, next) => {
   // Tenta buscar do cache
   const cached = await getCache(cacheKey);
   if (cached) {
+    logger.info("Cache hit for items", {
+      correlationId: req.correlationId,
+      cacheKey,
+    });
     return res.json(cached);
   }
 
@@ -124,10 +138,18 @@ router.get("/", async (req, res, next) => {
       total: results.length,
       filtered: q ? results.length : data.length,
       hasMore: limit ? results.length < data.length : false,
+      timestamp: new Date().toISOString(),
     };
 
     // Salva no cache
     await setCache(cacheKey, response);
+
+    logger.info("Items retrieved successfully", {
+      correlationId: req.correlationId,
+      totalItems: results.length,
+      hasSearch: !!q,
+      hasLimit: !!limit,
+    });
 
     res.json(response);
   } catch (error) {
@@ -162,6 +184,11 @@ router.get("/:id", async (req, res, next) => {
       error.code = "ITEM_NOT_FOUND";
       throw error;
     }
+
+    logger.info("Item retrieved successfully", {
+      correlationId: req.correlationId,
+      itemId: id,
+    });
 
     res.json(item);
   } catch (error) {
@@ -219,6 +246,12 @@ router.post("/", async (req, res, next) => {
 
     // Invalida cache de listagem
     await invalidateCache("items::*");
+
+    logger.info("Item created successfully", {
+      correlationId: req.correlationId,
+      itemId: newId,
+      itemName: newItem.name,
+    });
 
     // Return created item with 201 status
     res.status(201).json(newItem);
@@ -285,6 +318,12 @@ router.put("/:id", async (req, res, next) => {
     // Invalida cache de listagem
     await invalidateCache("items::*");
 
+    logger.info("Item updated successfully", {
+      correlationId: req.correlationId,
+      itemId: id,
+      updatedFields: Object.keys(updates),
+    });
+
     res.json(updatedItem);
   } catch (error) {
     next(error);
@@ -327,6 +366,12 @@ router.delete("/:id", async (req, res, next) => {
 
     // Invalida cache de listagem
     await invalidateCache("items::*");
+
+    logger.info("Item deleted successfully", {
+      correlationId: req.correlationId,
+      itemId: id,
+      itemName: deletedItem.name,
+    });
 
     res.json({ message: "Item deleted successfully", deletedItem });
   } catch (error) {
