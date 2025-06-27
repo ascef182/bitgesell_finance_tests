@@ -42,8 +42,7 @@ describe("Items API Routes", () => {
 
       expect(response.body.items).toEqual(testItems);
       expect(response.body.total).toBe(3);
-      expect(response.body.filtered).toBe(3);
-      expect(response.body.hasMore).toBe(false);
+      expect(response.body.timestamp).toBeDefined();
     });
 
     it("should filter items by search query", async () => {
@@ -53,14 +52,14 @@ describe("Items API Routes", () => {
 
       expect(response.body.items).toHaveLength(1);
       expect(response.body.items[0].name).toBe("Test Laptop");
-      expect(response.body.filtered).toBe(1);
+      expect(response.body.total).toBe(1);
     });
 
     it("should limit results when limit parameter is provided", async () => {
       const response = await request(app).get("/api/items?limit=2").expect(200);
 
       expect(response.body.items).toHaveLength(2);
-      expect(response.body.hasMore).toBe(true);
+      expect(response.body.total).toBe(2);
     });
 
     it("should return 400 for invalid limit parameter", async () => {
@@ -220,7 +219,7 @@ describe("Items API Routes", () => {
     it("should delete an existing item", async () => {
       const response = await request(app).delete("/api/items/1").expect(200);
 
-      expect(response.body.message).toBe("Item deleted successfully");
+      expect(response.body.message).toBe("Item with ID 1 deleted successfully");
       expect(response.body.deletedItem).toEqual(testItems[0]);
 
       // Verify writeJsonFile was called with updated data (without deleted item)

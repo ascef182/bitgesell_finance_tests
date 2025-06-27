@@ -87,9 +87,59 @@ async function writeItemsData(data) {
 }
 
 /**
- * GET /api/items
- * Retrieve all items with optional filtering and pagination
+ * @swagger
+ * /api/items:
+ *   get:
+ *     summary: Get all items
+ *     description: Retrieve a list of all items with optional filtering and pagination
+ *     tags: [Items]
+ *     parameters:
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *       - $ref: '#/components/parameters/Limit'
+ *     responses:
+ *       200:
+ *         description: List of items retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemList'
+ *             example:
+ *               items:
+ *                 - id: 1
+ *                   name: "Laptop"
+ *                   category: "Electronics"
+ *                   price: 999.99
+ *                   createdAt: "2025-06-27T16:00:00.000Z"
+ *                   updatedAt: "2025-06-27T16:30:00.000Z"
+ *                 - id: 2
+ *                   name: "Headphones"
+ *                   category: "Electronics"
+ *                   price: 199.99
+ *                   createdAt: "2025-06-27T16:00:00.000Z"
+ *                   updatedAt: null
+ *               total: 2
+ *               timestamp: "2025-06-27T16:00:00.000Z"
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         description: Items data file not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error:
+ *                 code: "DATA_READ_ERROR"
+ *                 message: "Failed to read items data: Items data file not found"
+ *               timestamp: "2025-06-27T16:00:00.000Z"
+ *               path: "/api/items"
+ *               correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
  */
+// GET /api/items com cache Redis
 router.get("/", async (req, res, next) => {
   const cacheKey = `items::${req.originalUrl}`;
 
@@ -120,10 +170,10 @@ router.get("/", async (req, res, next) => {
       );
     }
 
-    // Apply limit if specified
+    // Apply limit if provided
     if (limit) {
       const limitNum = parseInt(limit);
-      if (isNaN(limitNum) || limitNum < 0) {
+      if (isNaN(limitNum) || limitNum < 1) {
         const error = new Error("Invalid limit parameter");
         error.statusCode = 400;
         error.code = "INVALID_LIMIT";
@@ -132,16 +182,13 @@ router.get("/", async (req, res, next) => {
       results = results.slice(0, limitNum);
     }
 
-    // Monta resposta
     const response = {
       items: results,
       total: results.length,
-      filtered: q ? results.length : data.length,
-      hasMore: limit ? results.length < data.length : false,
       timestamp: new Date().toISOString(),
     };
 
-    // Salva no cache
+    // Cache the response
     await setCache(cacheKey, response);
 
     logger.info("Items retrieved successfully", {
@@ -158,28 +205,65 @@ router.get("/", async (req, res, next) => {
 });
 
 /**
- * GET /api/items/:id
- * Retrieve a specific item by ID
+ * @swagger
+ * /api/items/{id}:
+ *   get:
+ *     summary: Get item by ID
+ *     description: Retrieve a specific item by its unique identifier
+ *     tags: [Items]
+ *     parameters:
+ *       - $ref: '#/components/parameters/ItemId'
+ *     responses:
+ *       200:
+ *         description: Item retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Item'
+ *             example:
+ *               id: 1
+ *               name: "Laptop"
+ *               category: "Electronics"
+ *               price: 999.99
+ *               createdAt: "2025-06-27T16:00:00.000Z"
+ *               updatedAt: "2025-06-27T16:30:00.000Z"
+ *       400:
+ *         description: Invalid item ID format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error:
+ *                 code: "INVALID_ID"
+ *                 message: "Invalid item ID"
+ *               timestamp: "2025-06-27T16:00:00.000Z"
+ *               path: "/api/items/invalid"
+ *               correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
  */
+// GET /api/items/:id
 router.get("/:id", async (req, res, next) => {
   try {
+    const { id } = req.params;
+
     // Validate ID parameter
-    const id = parseInt(req.params.id);
-    if (isNaN(id) || id < 0) {
+    const itemId = parseInt(id);
+    if (isNaN(itemId) || itemId < 1) {
       const error = new Error("Invalid item ID");
       error.statusCode = 400;
       error.code = "INVALID_ID";
       throw error;
     }
 
-    // Read data asynchronously
     const data = await readItemsData();
-
-    // Find item by ID
-    const item = data.find((i) => i.id === id);
+    const item = data.find((item) => item.id === itemId);
 
     if (!item) {
-      const error = new Error(`Item with ID ${id} not found`);
+      const error = new Error(`Item with ID ${itemId} not found`);
       error.statusCode = 404;
       error.code = "ITEM_NOT_FOUND";
       throw error;
@@ -187,7 +271,7 @@ router.get("/:id", async (req, res, next) => {
 
     logger.info("Item retrieved successfully", {
       correlationId: req.correlationId,
-      itemId: id,
+      itemId,
     });
 
     res.json(item);
@@ -197,54 +281,103 @@ router.get("/:id", async (req, res, next) => {
 });
 
 /**
- * POST /api/items
- * Create a new item
+ * @swagger
+ * /api/items:
+ *   post:
+ *     summary: Create a new item
+ *     description: Create a new item with the provided data
+ *     tags: [Items]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateItemRequest'
+ *           example:
+ *             name: "New Laptop"
+ *             category: "Electronics"
+ *             price: 1299.99
+ *     responses:
+ *       201:
+ *         description: Item created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Item'
+ *             example:
+ *               id: 3
+ *               name: "New Laptop"
+ *               category: "Electronics"
+ *               price: 1299.99
+ *               createdAt: "2025-06-27T16:00:00.000Z"
+ *               updatedAt: null
+ *       400:
+ *         description: Invalid item data or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               missingName:
+ *                 summary: Missing item name
+ *                 value:
+ *                   error:
+ *                     code: "MISSING_NAME"
+ *                     message: "Item name is required"
+ *                   timestamp: "2025-06-27T16:00:00.000Z"
+ *                   path: "/api/items"
+ *                   correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *               invalidData:
+ *                 summary: Invalid item data
+ *                 value:
+ *                   error:
+ *                     code: "INVALID_ITEM_DATA"
+ *                     message: "Invalid item data"
+ *                   timestamp: "2025-06-27T16:00:00.000Z"
+ *                   path: "/api/items"
+ *                   correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
  */
+// POST /api/items
 router.post("/", async (req, res, next) => {
   try {
-    // Enhanced validation for request body
-    const item = req.body;
+    const { name, category, price } = req.body;
 
-    // Check if body is null, undefined, or empty object
-    if (!item || typeof item !== "object" || Object.keys(item).length === 0) {
+    // Validate request body
+    if (!req.body || Object.keys(req.body).length === 0) {
       const error = new Error("Invalid item data");
       error.statusCode = 400;
       error.code = "INVALID_ITEM_DATA";
       throw error;
     }
 
-    if (
-      !item.name ||
-      typeof item.name !== "string" ||
-      item.name.trim() === ""
-    ) {
+    if (!name || name.trim() === "") {
       const error = new Error("Item name is required");
       error.statusCode = 400;
       error.code = "MISSING_NAME";
       throw error;
     }
 
-    // Read existing data
     const data = await readItemsData();
 
-    // Generate unique ID (using timestamp + random for uniqueness)
-    const newId = Date.now() + Math.floor(Math.random() * 1000);
+    // Generate new ID
+    const newId = Math.max(...data.map((item) => item.id), 0) + 1;
 
-    // Create new item
     const newItem = {
       id: newId,
-      name: item.name.trim(),
-      category: item.category || "Uncategorized",
-      price: item.price || 0,
+      name: name.trim(),
+      category: category ? category.trim() : null,
+      price: price ? parseFloat(price) : null,
+      createdAt: new Date().toISOString(),
     };
 
-    // Add to data array
     data.push(newItem);
-
-    // Write updated data back to file
     await writeItemsData(data);
 
-    // Invalida cache de listagem
+    // Invalidate cache
     await invalidateCache("items::*");
 
     logger.info("Item created successfully", {
@@ -253,7 +386,6 @@ router.post("/", async (req, res, next) => {
       itemName: newItem.name,
     });
 
-    // Return created item with 201 status
     res.status(201).json(newItem);
   } catch (error) {
     next(error);
@@ -261,43 +393,97 @@ router.post("/", async (req, res, next) => {
 });
 
 /**
- * PUT /api/items/:id
- * Update an existing item
+ * @swagger
+ * /api/items/{id}:
+ *   put:
+ *     summary: Update an existing item
+ *     description: Update an existing item with the provided data
+ *     tags: [Items]
+ *     parameters:
+ *       - $ref: '#/components/parameters/ItemId'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateItemRequest'
+ *           example:
+ *             name: "Updated Laptop"
+ *             price: 1199.99
+ *     responses:
+ *       200:
+ *         description: Item updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Item'
+ *             example:
+ *               id: 1
+ *               name: "Updated Laptop"
+ *               category: "Electronics"
+ *               price: 1199.99
+ *               createdAt: "2025-06-27T16:00:00.000Z"
+ *               updatedAt: "2025-06-27T16:30:00.000Z"
+ *       400:
+ *         description: Invalid item ID or update data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               invalidId:
+ *                 summary: Invalid item ID
+ *                 value:
+ *                   error:
+ *                     code: "INVALID_ID"
+ *                     message: "Invalid item ID"
+ *                   timestamp: "2025-06-27T16:00:00.000Z"
+ *                   path: "/api/items/invalid"
+ *                   correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *               invalidUpdate:
+ *                 summary: Invalid update data
+ *                 value:
+ *                   error:
+ *                     code: "INVALID_UPDATE_DATA"
+ *                     message: "Invalid update data"
+ *                   timestamp: "2025-06-27T16:00:00.000Z"
+ *                   path: "/api/items/1"
+ *                   correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
  */
+// PUT /api/items/:id
 router.put("/:id", async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const updateData = req.body;
+
     // Validate ID parameter
-    const id = parseInt(req.params.id);
-    if (isNaN(id) || id < 0) {
+    const itemId = parseInt(id);
+    if (isNaN(itemId) || itemId < 1) {
       const error = new Error("Invalid item ID");
       error.statusCode = 400;
       error.code = "INVALID_ID";
       throw error;
     }
 
-    // Enhanced validation for request body
-    const updates = req.body;
-
-    // Check if body is null, undefined, or empty object
-    if (
-      !updates ||
-      typeof updates !== "object" ||
-      Object.keys(updates).length === 0
-    ) {
+    // Validate update data
+    if (!updateData || Object.keys(updateData).length === 0) {
       const error = new Error("Invalid update data");
       error.statusCode = 400;
       error.code = "INVALID_UPDATE_DATA";
       throw error;
     }
 
-    // Read existing data
     const data = await readItemsData();
-
-    // Find item to update
-    const itemIndex = data.findIndex((i) => i.id === id);
+    const itemIndex = data.findIndex((item) => item.id === itemId);
 
     if (itemIndex === -1) {
-      const error = new Error(`Item with ID ${id} not found`);
+      const error = new Error(`Item with ID ${itemId} not found`);
       error.statusCode = 404;
       error.code = "ITEM_NOT_FOUND";
       throw error;
@@ -306,22 +492,20 @@ router.put("/:id", async (req, res, next) => {
     // Update item
     const updatedItem = {
       ...data[itemIndex],
-      ...updates,
-      id, // Ensure ID cannot be changed
+      ...updateData,
+      updatedAt: new Date().toISOString(),
     };
 
     data[itemIndex] = updatedItem;
-
-    // Write updated data back to file
     await writeItemsData(data);
 
-    // Invalida cache de listagem
+    // Invalidate cache
     await invalidateCache("items::*");
 
     logger.info("Item updated successfully", {
       correlationId: req.correlationId,
-      itemId: id,
-      updatedFields: Object.keys(updates),
+      itemId,
+      updatedFields: Object.keys(updateData),
     });
 
     res.json(updatedItem);
@@ -331,49 +515,97 @@ router.put("/:id", async (req, res, next) => {
 });
 
 /**
- * DELETE /api/items/:id
- * Delete an item
+ * @swagger
+ * /api/items/{id}:
+ *   delete:
+ *     summary: Delete an item
+ *     description: Delete an existing item by its ID
+ *     tags: [Items]
+ *     parameters:
+ *       - $ref: '#/components/parameters/ItemId'
+ *     responses:
+ *       200:
+ *         description: Item deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: Success message
+ *                   example: "Item with ID 1 deleted successfully"
+ *                 deletedItem:
+ *                   $ref: '#/components/schemas/Item'
+ *             example:
+ *               message: "Item with ID 1 deleted successfully"
+ *               deletedItem:
+ *                 id: 1
+ *                 name: "Laptop"
+ *                 category: "Electronics"
+ *                 price: 999.99
+ *                 createdAt: "2025-06-27T16:00:00.000Z"
+ *                 updatedAt: "2025-06-27T16:30:00.000Z"
+ *       400:
+ *         description: Invalid item ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error:
+ *                 code: "INVALID_ID"
+ *                 message: "Invalid item ID"
+ *               timestamp: "2025-06-27T16:00:00.000Z"
+ *               path: "/api/items/invalid"
+ *               correlationId: "550e8400-e29b-41d4-a716-446655440000"
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
  */
+// DELETE /api/items/:id
 router.delete("/:id", async (req, res, next) => {
   try {
+    const { id } = req.params;
+
     // Validate ID parameter
-    const id = parseInt(req.params.id);
-    if (isNaN(id) || id < 0) {
+    const itemId = parseInt(id);
+    if (isNaN(itemId) || itemId < 1) {
       const error = new Error("Invalid item ID");
       error.statusCode = 400;
       error.code = "INVALID_ID";
       throw error;
     }
 
-    // Read existing data
     const data = await readItemsData();
-
-    // Find item to delete
-    const itemIndex = data.findIndex((i) => i.id === id);
+    const itemIndex = data.findIndex((item) => item.id === itemId);
 
     if (itemIndex === -1) {
-      const error = new Error(`Item with ID ${id} not found`);
+      const error = new Error(`Item with ID ${itemId} not found`);
       error.statusCode = 404;
       error.code = "ITEM_NOT_FOUND";
       throw error;
     }
 
-    // Remove item
     const deletedItem = data.splice(itemIndex, 1)[0];
-
-    // Write updated data back to file
     await writeItemsData(data);
 
-    // Invalida cache de listagem
+    // Invalidate cache
     await invalidateCache("items::*");
 
     logger.info("Item deleted successfully", {
       correlationId: req.correlationId,
-      itemId: id,
+      itemId,
       itemName: deletedItem.name,
     });
 
-    res.json({ message: "Item deleted successfully", deletedItem });
+    res.json({
+      message: `Item with ID ${itemId} deleted successfully`,
+      deletedItem,
+    });
   } catch (error) {
     next(error);
   }
