@@ -52,6 +52,11 @@ app.use(validateRequest);
 app.use("/api/items", itemsRouter);
 app.use("/api/stats", statsRouter);
 
+// Favicon route to prevent 404 errors in browser
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end(); // No Content
+});
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
