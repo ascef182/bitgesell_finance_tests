@@ -3,6 +3,18 @@ import { Link } from "react-router-dom";
 import { ShoppingCart, Heart, Star } from "lucide-react";
 
 /**
+ * Helper function to format prices as USD currency
+ * @param {number} value - Price value to format
+ * @returns {string} Formatted price string
+ */
+const formatPrice = (value) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0, // No cents
+  }).format(value);
+
+/**
  * ProductCard Component
  * Modern, Apple Store inspired product card with hover effects and animations
  *
@@ -54,7 +66,7 @@ const ProductCard = ({ product }) => {
         <img
           src={imageUrl}
           alt={product.name}
-          className="product-image"
+          className="w-full h-48 object-contain rounded-lg transition-transform duration-300 hover:scale-105"
           loading="lazy"
           onError={(e) => {
             e.target.src = `https://via.placeholder.com/400x400/f8f9fa/6c757d?text=${encodeURIComponent(
@@ -152,11 +164,11 @@ const ProductCard = ({ product }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="text-2xl font-bold text-gray-900">
-              ${product.price?.toLocaleString()}
+              {formatPrice(product.price)}
             </span>
             {product.originalPrice && (
               <span className="text-lg text-gray-500 line-through">
-                ${product.originalPrice?.toLocaleString()}
+                {formatPrice(product.originalPrice)}
               </span>
             )}
           </div>

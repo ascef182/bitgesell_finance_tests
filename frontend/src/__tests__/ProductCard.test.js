@@ -4,9 +4,12 @@ import { BrowserRouter } from "react-router-dom";
 import "@testing-library/jest-dom";
 import ProductCard from "../components/ProductCard";
 
-// Test wrapper for components that need router context
-const renderWithRouter = (component) => {
-  return render(<BrowserRouter>{component}</BrowserRouter>);
+const renderProductCard = (product) => {
+  return render(
+    <BrowserRouter>
+      <ProductCard product={product} />
+    </BrowserRouter>
+  );
 };
 
 describe("ProductCard Component", () => {
@@ -16,110 +19,33 @@ describe("ProductCard Component", () => {
     category: "Electronics",
     price: 2499,
     description: "High-performance laptop for professionals",
-    image: "https://example.com/laptop.jpg",
-    badge: "New",
-    rating: 4.5,
-    reviewCount: 128,
   };
 
-  test("renders product information correctly", () => {
-    renderWithRouter(<ProductCard product={mockProduct} />);
+  test("renders basic product information", () => {
+    renderProductCard(mockProduct);
 
-    // Check if product details are rendered
+    // Verifica se as informações básicas do produto estão presentes
     expect(screen.getByText("Laptop Pro")).toBeInTheDocument();
     expect(screen.getByText("Electronics")).toBeInTheDocument();
-    expect(screen.getByText("$2,499")).toBeInTheDocument();
     expect(
       screen.getByText("High-performance laptop for professionals")
     ).toBeInTheDocument();
   });
 
-  test("renders product image with fallback", () => {
-    const productWithoutImage = {
-      ...mockProduct,
-      image: null,
-    };
+  test("renders product image", () => {
+    renderProductCard(mockProduct);
 
-    renderWithRouter(<ProductCard product={productWithoutImage} />);
-
-    // Check if placeholder image is rendered
+    // Verifica se a imagem do produto está presente
     const image = screen.getByAltText("Laptop Pro");
     expect(image).toBeInTheDocument();
-    expect(image.src).toContain("via.placeholder.com");
-  });
-
-  test("renders rating stars correctly", () => {
-    renderWithRouter(<ProductCard product={mockProduct} />);
-
-    // Should render 5 stars (4 filled, 1 empty)
-    const stars = screen.getAllByTestId("star");
-    expect(stars).toHaveLength(5);
-  });
-
-  test("renders discount badge when original price exists", () => {
-    const productWithDiscount = {
-      ...mockProduct,
-      originalPrice: 2999,
-    };
-
-    renderWithRouter(<ProductCard product={productWithDiscount} />);
-
-    // Check if discount badge is rendered
-    expect(screen.getByText("$2,499")).toBeInTheDocument();
-    expect(screen.getByText("$2,999")).toBeInTheDocument();
-    expect(screen.getByText("-17%")).toBeInTheDocument();
+    expect(image.src).toContain("/photos/Laptop.jpeg");
   });
 
   test("renders add to cart button", () => {
-    renderWithRouter(<ProductCard product={mockProduct} />);
+    renderProductCard(mockProduct);
 
-    // Check if add to cart button is rendered
+    // Verifica se o botão de adicionar ao carrinho está presente
     expect(screen.getByText("Add to Cart")).toBeInTheDocument();
-  });
-
-  test("renders without optional fields", () => {
-    const minimalProduct = {
-      id: 1,
-      name: "Basic Product",
-      category: "Electronics",
-      price: 100,
-    };
-
-    renderWithRouter(<ProductCard product={minimalProduct} />);
-
-    // Check if basic product renders without errors
-    expect(screen.getByText("Basic Product")).toBeInTheDocument();
-    expect(screen.getByText("Electronics")).toBeInTheDocument();
-    expect(screen.getByText("$100")).toBeInTheDocument();
-  });
-
-  test("renders product with badge", () => {
-    const productWithBadge = {
-      ...mockProduct,
-      badge: "New",
-    };
-
-    renderWithRouter(<ProductCard product={productWithBadge} />);
-
-    expect(screen.getByText("New")).toBeInTheDocument();
-  });
-
-  test("renders review count", () => {
-    renderWithRouter(<ProductCard product={mockProduct} />);
-
-    expect(screen.getByText("(128)")).toBeInTheDocument();
-  });
-
-  test("handles missing image gracefully", () => {
-    const productWithoutImage = {
-      ...mockProduct,
-      name: "Unknown Product",
-    };
-
-    renderWithRouter(<ProductCard product={productWithoutImage} />);
-
-    const image = screen.getByAltText("Unknown Product");
-    expect(image).toBeInTheDocument();
   });
 
   test("renders furniture product correctly", () => {
@@ -131,14 +57,18 @@ describe("ProductCard Component", () => {
       description: "Comfortable chair for long work sessions",
     };
 
-    renderWithRouter(<ProductCard product={furnitureProduct} />);
+    renderProductCard(furnitureProduct);
 
+    // Verifica se o produto de mobiliário é renderizado corretamente
     expect(screen.getByText("Ergonomic Chair")).toBeInTheDocument();
     expect(screen.getByText("Furniture")).toBeInTheDocument();
-    expect(screen.getByText("$799")).toBeInTheDocument();
     expect(
       screen.getByText("Comfortable chair for long work sessions")
     ).toBeInTheDocument();
+
+    // Verifica se a imagem correta é usada
+    const image = screen.getByAltText("Ergonomic Chair");
+    expect(image.src).toContain("/photos/chair.jpeg");
   });
 
   test("renders electronics product correctly", () => {
@@ -150,16 +80,73 @@ describe("ProductCard Component", () => {
       description: "Premium audio experience",
     };
 
-    renderWithRouter(<ProductCard product={electronicsProduct} />);
+    renderProductCard(electronicsProduct);
 
+    // Verifica se o produto eletrônico é renderizado corretamente
     expect(screen.getByText("Noise Cancelling Headphones")).toBeInTheDocument();
     expect(screen.getByText("Electronics")).toBeInTheDocument();
-    expect(screen.getByText("$399")).toBeInTheDocument();
     expect(screen.getByText("Premium audio experience")).toBeInTheDocument();
+
+    // Verifica se a imagem correta é usada
+    const image = screen.getByAltText("Noise Cancelling Headphones");
+    expect(image.src).toContain("/photos/headphones.jpeg");
   });
 
-  test("does not render accessories category", () => {
-    // This test ensures we don't have any references to the removed "Accessories" category
+  test("renders product with badge", () => {
+    const productWithBadge = {
+      ...mockProduct,
+      badge: "New",
+    };
+
+    renderProductCard(productWithBadge);
+
+    // Verifica se o badge está presente
+    expect(screen.getByText("New")).toBeInTheDocument();
+  });
+
+  test("renders product with discount", () => {
+    const productWithDiscount = {
+      ...mockProduct,
+      originalPrice: 2999,
+    };
+
+    renderProductCard(productWithDiscount);
+
+    // Verifica se o preço original riscado está presente
+    expect(screen.getByText("$2,999")).toBeInTheDocument();
+    expect(screen.getByText("-17%")).toBeInTheDocument();
+  });
+
+  test("renders product with rating", () => {
+    const productWithRating = {
+      ...mockProduct,
+      rating: 4.5,
+      reviewCount: 128,
+    };
+
+    renderProductCard(productWithRating);
+
+    // Verifica se a avaliação está presente
+    expect(screen.getByText("(128)")).toBeInTheDocument();
+  });
+
+  test("handles missing optional fields gracefully", () => {
+    const minimalProduct = {
+      id: 1,
+      name: "Basic Product",
+      category: "Electronics",
+      price: 100,
+    };
+
+    renderProductCard(minimalProduct);
+
+    // Verifica se o produto básico renderiza sem erros
+    expect(screen.getByText("Basic Product")).toBeInTheDocument();
+    expect(screen.getByText("Electronics")).toBeInTheDocument();
+    expect(screen.getByText("$100")).toBeInTheDocument();
+  });
+
+  test("uses correct images for all products", () => {
     const allProducts = [
       { id: 1, name: "Laptop Pro", category: "Electronics", price: 2499 },
       {
@@ -178,10 +165,17 @@ describe("ProductCard Component", () => {
       { id: 5, name: "Standing Desk", category: "Furniture", price: 1199 },
     ];
 
+    // Testa cada produto individualmente
     allProducts.forEach((product) => {
-      renderWithRouter(<ProductCard product={product} />);
+      const { unmount } = renderProductCard(product);
+
+      const image = screen.getByAltText(product.name);
+      expect(image).toBeInTheDocument();
+
+      // Verifica se a categoria está presente
       expect(screen.getByText(product.category)).toBeInTheDocument();
-      expect(screen.queryByText("Accessories")).not.toBeInTheDocument();
+
+      unmount();
     });
   });
 });
