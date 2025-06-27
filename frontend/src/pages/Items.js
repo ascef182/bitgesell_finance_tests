@@ -1,6 +1,19 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  ShoppingBag,
+  Search,
+  Grid,
+  List as ListIcon,
+  Plus,
+  Filter,
+  ArrowLeft,
+} from "lucide-react";
+import VirtualizedList from "../components/VirtualizedList";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import Skeleton from "../components/ui/Skeleton";
 import { useData } from "../state/DataContext";
-import { Link } from "react-router-dom";
 
 /**
  * Items component with memory leak prevention
@@ -10,150 +23,237 @@ import { Link } from "react-router-dom";
  * - State updates on unmounted components
  * - Unnecessary network requests
  */
-function Items() {
-  const { items, loading, error, fetchItems, clearError, retryFetch } =
-    useData();
-
-  // Use ref to track if component is mounted
-  const isMountedRef = useRef(true);
-
-  // Use ref to store the current AbortController
-  const abortControllerRef = useRef(null);
+const Items = () => {
+  const { items, loading, error, fetchItems } = useData();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
   useEffect(() => {
-    // Set mounted flag
-    isMountedRef.current = true;
+    fetchItems();
+  }, [fetchItems]);
 
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
-
-    /**
-     * Fetch items with proper error handling
-     * Only updates state if component is still mounted
-     */
-    const loadItems = async () => {
-      try {
-        await fetchItems(abortControllerRef.current.signal);
-      } catch (err) {
-        // Only log errors that aren't abort errors and component is still mounted
-        if (err.name !== "AbortError" && isMountedRef.current) {
-          console.error("Failed to fetch items:", err);
-        }
-      }
-    };
-
-    // Start fetching items
-    loadItems();
-
-    /**
-     * Cleanup function - called when component unmounts or dependencies change
-     * This prevents memory leaks and state updates on unmounted components
-     */
-    return () => {
-      // Mark component as unmounted
-      isMountedRef.current = false;
-
-      // Abort any pending request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
-  }, [fetchItems]); // Only re-run if fetchItems function changes
-
-  /**
-   * Handle retry with new AbortController
-   */
-  const handleRetry = async () => {
-    clearError();
-
-    // Create new AbortController for retry
-    abortControllerRef.current = new AbortController();
-
-    try {
-      await retryFetch(abortControllerRef.current.signal);
-    } catch (err) {
-      if (err.name !== "AbortError" && isMountedRef.current) {
-        console.error("Retry failed:", err);
-      }
-    }
+  const handleItemClick = (item) => {
+    // Navigate to item detail or show modal
+    console.log("Item clicked:", item);
+    // You can implement navigation here
   };
 
-  // Show loading state
-  if (loading && !items.length) {
-    return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
-        <p>Loading items...</p>
-      </div>
-    );
-  }
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+  };
 
-  // Show error state with retry option
+  const categories = [
+    "all",
+    ...new Set(items.map((item) => item.category).filter(Boolean)),
+  ];
+
   if (error) {
     return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
-        <p style={{ color: "red" }}>Error: {error}</p>
-        <button
-          onClick={handleRetry}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Retry
-        </button>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card className="text-center py-12">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Error Loading Items
+            </h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button onClick={fetchItems} variant="primary">
+              Try Again
+            </Button>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  // Show empty state
-  if (!items.length) {
-    return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
-        <p>No items found.</p>
-      </div>
-    );
-  }
-
-  // Render items list
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Items List</h2>
-      {loading && <p style={{ color: "#666" }}>Refreshing...</p>}
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {items.map((item) => (
-          <li
-            key={item.id}
-            style={{
-              padding: "10px",
-              margin: "5px 0",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              backgroundColor: "#f9f9f9",
-            }}
-          >
-            <Link
-              to={`/items/${item.id}`}
-              style={{
-                textDecoration: "none",
-                color: "#007bff",
-                fontWeight: "bold",
-              }}
-            >
-              {item.name}
-            </Link>
-            <span style={{ color: "#666", marginLeft: "10px" }}>
-              ${item.price}
-            </span>
-          </li>
-        ))}
-      </ul>
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation Header */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" className="md:hidden">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-xl font-semibold text-gray-900">
+                  Items Store
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm">
+                <Plus className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-50 to-purple-50 py-12 lg:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Discover Our Collection
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Explore our carefully curated items designed to enhance your
+              digital lifestyle.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats and Controls */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Stats */}
+            <div className="flex items-center space-x-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900">
+                  {loading ? "..." : items.length}
+                </div>
+                <div className="text-sm text-gray-500">Total Items</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {loading ? "..." : categories.length - 1}
+                </div>
+                <div className="text-sm text-gray-500">Categories</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {loading ? "..." : items.filter((item) => item.price).length}
+                </div>
+                <div className="text-sm text-gray-500">With Price</div>
+              </div>
+            </div>
+
+            {/* View Controls */}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={viewMode === "grid" ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              >
+                <ListIcon className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        {showFilters && (
+          <Card className="mb-6">
+            <Card.Content>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category Filter
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category === "all" ? "All Categories" : category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedCategory("all");
+                      setSearchTerm("");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Items List */}
+        <VirtualizedList
+          items={
+            selectedCategory === "all"
+              ? items
+              : items.filter((item) => item.category === selectedCategory)
+          }
+          loading={loading}
+          onItemClick={handleItemClick}
+          searchTerm={searchTerm}
+          onSearchChange={handleSearchChange}
+          viewMode={viewMode}
+        />
+
+        {/* Empty State */}
+        {!loading && items.length === 0 && (
+          <Card className="text-center py-12">
+            <div className="text-gray-400 text-6xl mb-4">📦</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No items available
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Items will appear here once they're added to the system.
+            </p>
+            <Button onClick={fetchItems} variant="primary">
+              Refresh
+            </Button>
+          </Card>
+        )}
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center">
+                <ShoppingBag className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-lg font-semibold text-gray-900">
+                Items Store
+              </span>
+            </div>
+            <p className="text-gray-600">
+              Premium items for the modern lifestyle.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
-}
+};
 
 export default Items;
