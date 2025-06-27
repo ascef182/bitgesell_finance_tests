@@ -9,6 +9,9 @@ const {
   fileExists,
 } = require("../utils/fileUtils");
 
+// Import cache utilities
+const { getCache, setCache, invalidateCache } = require("../utils/cache");
+
 // Data file path
 const DATA_PATH = path.join(__dirname, "../../../data/items.json");
 
@@ -78,6 +81,14 @@ async function writeItemsData(data) {
  * Retrieve all items with optional filtering and pagination
  */
 router.get("/", async (req, res, next) => {
+  const cacheKey = `items::${req.originalUrl}`;
+
+  // Tenta buscar do cache
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   try {
     // Read data asynchronously
     const data = await readItemsData();
@@ -107,13 +118,18 @@ router.get("/", async (req, res, next) => {
       results = results.slice(0, limitNum);
     }
 
-    // Return results with metadata
-    res.json({
+    // Monta resposta
+    const response = {
       items: results,
       total: results.length,
       filtered: q ? results.length : data.length,
       hasMore: limit ? results.length < data.length : false,
-    });
+    };
+
+    // Salva no cache
+    await setCache(cacheKey, response);
+
+    res.json(response);
   } catch (error) {
     next(error);
   }
@@ -201,6 +217,9 @@ router.post("/", async (req, res, next) => {
     // Write updated data back to file
     await writeItemsData(data);
 
+    // Invalida cache de listagem
+    await invalidateCache("items::*");
+
     // Return created item with 201 status
     res.status(201).json(newItem);
   } catch (error) {
@@ -263,6 +282,9 @@ router.put("/:id", async (req, res, next) => {
     // Write updated data back to file
     await writeItemsData(data);
 
+    // Invalida cache de listagem
+    await invalidateCache("items::*");
+
     res.json(updatedItem);
   } catch (error) {
     next(error);
@@ -302,6 +324,9 @@ router.delete("/:id", async (req, res, next) => {
 
     // Write updated data back to file
     await writeItemsData(data);
+
+    // Invalida cache de listagem
+    await invalidateCache("items::*");
 
     res.json({ message: "Item deleted successfully", deletedItem });
   } catch (error) {

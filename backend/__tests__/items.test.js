@@ -20,10 +20,15 @@ const {
   fileExists,
 } = require("../src/utils/fileUtils");
 
+const { clearCache } = require("../src/utils/cache");
+
 describe("Items API Routes", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset all mocks before each test
     jest.clearAllMocks();
+
+    // Clear cache before each test
+    await clearCache();
 
     // Default mock implementations
     fileExists.mockResolvedValue(true);

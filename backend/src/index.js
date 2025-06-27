@@ -4,6 +4,8 @@ const morgan = require("morgan");
 const itemsRouter = require("./routes/items");
 const statsRouter = require("./routes/stats");
 const cors = require("cors");
+const responseTime = require("response-time");
+const rateLimiter = require("./middleware/rateLimit");
 
 // Import secure middleware
 const {
@@ -47,6 +49,12 @@ app.use(morgan("combined")); // Use combined format for better security
 
 // Request validation middleware
 app.use(validateRequest);
+
+// Performance monitoring (X-Response-Time header)
+app.use(responseTime());
+
+// Rate limiting global
+app.use(rateLimiter);
 
 // API Routes
 app.use("/api/items", itemsRouter);
